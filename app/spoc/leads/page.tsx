@@ -68,6 +68,7 @@ import { toast } from "sonner"
 export default function LeadBank() {
   const [leads, setLeads] = useState<Prospect[]>([])
   const [telecallers, setTelecallers] = useState<any[]>([])
+  const [courses, setCourses] = useState<any[]>([])
   const [selectedLeads, setSelectedLeads] = useState<string[]>([])
   const [targetTelecaller, setTargetTelecaller] = useState<string>("")
   const [searchQuery, setSearchQuery] = useState("")
@@ -98,12 +99,23 @@ export default function LeadBank() {
 
   const loadData = useCallback(async () => {
     try {
-      const [prospectsData, tcData] = await Promise.all([
+      const [prospectsData, tcData, cData] = await Promise.all([
         api.getProspects(),
-        api.getTelecallers()
+        api.getTelecallers(),
+        api.getCourses(),
       ])
       setLeads(prospectsData)
       setTelecallers(tcData)
+      setCourses(cData)
+
+      if (cData.length > 0) {
+        setNewLead((prev) => {
+          const defaultCourse = cData[0].code || cData[0].name
+          return prev.courseInterest && cData.some((course: any) => (course.code || course.name) === prev.courseInterest)
+            ? prev
+            : { ...prev, courseInterest: defaultCourse }
+        })
+      }
     } catch (err) {
       console.error("Failed to load leads data:", err)
       toast.error("Failed to load leads")
@@ -117,6 +129,29 @@ export default function LeadBank() {
     const interval = setInterval(loadData, 10000)
     return () => clearInterval(interval)
   }, [loadData])
+
+  useEffect(() => {
+    if (!isAddSheetOpen) return
+
+    const loadCoursesOnOpen = async () => {
+      try {
+        const cData = await api.getCourses()
+        setCourses(cData)
+        if (cData.length > 0) {
+          setNewLead((prev) => {
+            const defaultCourse = cData[0].code || cData[0].name
+            return prev.courseInterest && cData.some((course: any) => (course.code || course.name) === prev.courseInterest)
+              ? prev
+              : { ...prev, courseInterest: defaultCourse }
+          })
+        }
+      } catch (err) {
+        console.error("Failed to load course options:", err)
+      }
+    }
+
+    loadCoursesOnOpen()
+  }, [isAddSheetOpen])
 
   const handleCreateTask = async () => {
     if (!taskInstitution || !taskAction || !taskTelecaller) return
@@ -573,9 +608,15 @@ export default function LeadBank() {
                         <SelectValue placeholder="Select" />
                       </SelectTrigger>
                       <SelectContent className="rounded-xl">
-                        <SelectItem value="MBA">MBA</SelectItem>
-                        <SelectItem value="BCA">BCA</SelectItem>
-                        <SelectItem value="CA21">CA21 Cell</SelectItem>
+                        {courses.length > 0 ? (
+                          courses.map((course) => (
+                            <SelectItem key={course.id} value={course.code || course.name}>
+                              {course.name || course.code}
+                            </SelectItem>
+                          ))
+                        ) : (
+                          <SelectItem value="">No courses available</SelectItem>
+                        )}
                       </SelectContent>
                     </Select>
                   </div>

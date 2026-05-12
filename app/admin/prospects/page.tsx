@@ -101,6 +101,7 @@ const ITEMS_PER_PAGE = 15
 export default function AdminProspectsPage() {
   const [prospects, setProspects] = useState<any[]>([])
   const [telecallers, setTelecallers] = useState<any[]>([])
+  const [courses, setCourses] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState("")
   const [statusFilter, setStatusFilter] = useState<string>("all")
@@ -119,19 +120,30 @@ export default function AdminProspectsPage() {
     mobile: "",
     email: "",
     location: "",
-    courseInterest: "BCA",
+    courseInterest: "",
     status: "New",
     purposeOfCall: ""
   })
 
   const loadData = useCallback(async () => {
     try {
-      const [pData, tData] = await Promise.all([
+      const [pData, tData, cData] = await Promise.all([
         api.getProspects(),
-        api.getTelecallers()
+        api.getTelecallers(),
+        api.getCourses(),
       ])
       setProspects(pData)
       setTelecallers(tData)
+      setCourses(cData)
+
+      if (cData.length > 0) {
+        setNewProspect((prev) => {
+          const defaultCourse = cData[0].code || cData[0].name
+          return prev.courseInterest && cData.some((course: any) => (course.code || course.name) === prev.courseInterest)
+            ? prev
+            : { ...prev, courseInterest: defaultCourse }
+        })
+      }
     } catch (err) {
       console.error("Failed to load prospects:", err)
       toast.error("Failed to load data")
@@ -158,7 +170,7 @@ export default function AdminProspectsPage() {
         mobile: "",
         email: "",
         location: "",
-        courseInterest: "BCA",
+        courseInterest: courses.length > 0 ? courses[0].code : "",
         status: "New",
         purposeOfCall: ""
       })
@@ -366,9 +378,19 @@ export default function AdminProspectsPage() {
                 </SelectTrigger>
                 <SelectContent className="rounded-xl border-none shadow-2xl">
                   <SelectItem value="all">All Courses</SelectItem>
-                  <SelectItem value="MBA">MBA</SelectItem>
-                  <SelectItem value="BCA">BCA</SelectItem>
-                  <SelectItem value="CA21">CA21 Cell</SelectItem>
+                  {courses.length > 0 ? (
+                    courses.map((course) => (
+                      <SelectItem key={course.id} value={course.code || course.name}>
+                        {course.name || course.code}
+                      </SelectItem>
+                    ))
+                  ) : (
+                    <>
+                      <SelectItem value="MBA">MBA</SelectItem>
+                      <SelectItem value="BCA">BCA</SelectItem>
+                      <SelectItem value="CA21">CA21 Cell</SelectItem>
+                    </>
+                  )}
                 </SelectContent>
               </Select>
             </div>
@@ -589,9 +611,15 @@ export default function AdminProspectsPage() {
                     <SelectValue placeholder="Course" />
                   </SelectTrigger>
                   <SelectContent className="rounded-2xl border-none shadow-2xl">
-                    <SelectItem value="MBA">MBA</SelectItem>
-                    <SelectItem value="BCA">BCA</SelectItem>
-                    <SelectItem value="CA21">CA21 Cell</SelectItem>
+                    {courses.length > 0 ? (
+                      courses.map((course) => (
+                        <SelectItem key={course.id} value={course.code}>
+                          {course.name || course.code}
+                        </SelectItem>
+                      ))
+                    ) : (
+                      <SelectItem value="">No courses available</SelectItem>
+                    )}
                   </SelectContent>
                 </Select>
               </div>
